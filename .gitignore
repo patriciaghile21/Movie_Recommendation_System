@@ -1,0 +1,12 @@
+# PyCharm project settings
+.idea/
+../.idea/
+
+# Python compiled files (junk)
+__pycache__/
+*.py[cod]
+
+# Virtual Environments
+venv/
+env/
+.env
