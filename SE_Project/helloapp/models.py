@@ -20,6 +20,7 @@ class Genre(models.Model):
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     birthdate = models.DateField()
+    is_email_verified = models.BooleanField(default=False)
 
     def __str__(self):
         return self.user.username
@@ -40,6 +41,7 @@ class Review(models.Model):
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
     rating = models.DecimalField(max_digits=3, decimal_places=1)
     text = models.TextField()
+    date_posted = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('user', 'movie')
