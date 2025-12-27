@@ -21,6 +21,7 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     birthdate = models.DateField()
     is_email_verified = models.BooleanField(default=False)
+    genres = models.ManyToManyField(Genre, blank=True)
 
     def __str__(self):
         return self.user.username

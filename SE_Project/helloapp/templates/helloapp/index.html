@@ -1,9 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <title>Hello App</title>
-</head>
-<body>
-    <h1>{{ message.text }}</h1>
-</body>
-</html>
+<h3>Home Page</h3>
+
+{% if request.user.is_authenticated %}
+    <p>Hello, {{ request.user.username }}!</p>
+    <a href="{% url 'logout' %}">
+        <button type="button">Logout</button>
+    </a>
+{% else %}
+    <p>You are not logged in.</p>
+    <a href="{% url 'login' %}">Login</a>
+{% endif %}
