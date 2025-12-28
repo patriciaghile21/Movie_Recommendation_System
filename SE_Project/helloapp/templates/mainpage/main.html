@@ -1,0 +1,51 @@
+{% extends 'mainpage/base.html' %}
+
+{% block content %}
+<div style="text-align: center; background-color: #FFB6C1; padding: 40px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+
+    <h1 style="color: #880e4f; text-shadow: 1px 1px 2px rgba(255,255,255,0.4);">What are you in the mood for? 🍿</h1>
+    <p style="color: #6a1b4d; font-weight: bold;">Select your favorite genres and let AI recommend the best movies.</p>
+    <hr style="border-color: #ff69b4; opacity: 0.6;">
+
+    <form method="POST" action="{% url 'recommendations' %}">
+        {% csrf_token %}
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 30px 0;">
+
+            <label style="padding: 20px; background: white; border: 2px solid #ff69b4; border-radius: 8px; cursor: pointer; color: #c2185b; font-weight: bold;">
+                <input type="checkbox" name="genres" value="Action"> 💥 Action
+            </label>
+            <label style="padding: 20px; background: white; border: 2px solid #ff69b4; border-radius: 8px; cursor: pointer; color: #c2185b; font-weight: bold;">
+                <input type="checkbox" name="genres" value="Comedy"> 😂 Comedy
+            </label>
+            <label style="padding: 20px; background: white; border: 2px solid #ff69b4; border-radius: 8px; cursor: pointer; color: #c2185b; font-weight: bold;">
+                <input type="checkbox" name="genres" value="Sci-Fi"> 👽 Sci-Fi
+            </label>
+            <label style="padding: 20px; background: white; border: 2px solid #ff69b4; border-radius: 8px; cursor: pointer; color: #c2185b; font-weight: bold;">
+                <input type="checkbox" name="genres" value="Drama"> 🎭 Drama
+            </label>
+            <label style="padding: 20px; background: white; border: 2px solid #ff69b4; border-radius: 8px; cursor: pointer; color: #c2185b; font-weight: bold;">
+                <input type="checkbox" name="genres" value="Horror"> 👻 Horror
+            </label>
+            <label style="padding: 20px; background: white; border: 2px solid #ff69b4; border-radius: 8px; cursor: pointer; color: #c2185b; font-weight: bold;">
+                <input type="checkbox" name="genres" value="Romance"> ❤️ Romance
+            </label>
+
+            <label style="padding: 20px; background: white; border: 2px solid #ff69b4; border-radius: 8px; cursor: pointer; color: #c2185b; font-weight: bold;">
+                <input type="checkbox" name="genres" value="Mystery"> 🕵️‍♀️ Mystery
+            </label>
+            <label style="padding: 20px; background: white; border: 2px solid #ff69b4; border-radius: 8px; cursor: pointer; color: #c2185b; font-weight: bold;">
+                <input type="checkbox" name="genres" value="Fantasy"> 🧚‍♀️ Fantasy
+            </label>
+            <label style="padding: 20px; background: white; border: 2px solid #ff69b4; border-radius: 8px; cursor: pointer; color: #c2185b; font-weight: bold;">
+                <input type="checkbox" name="genres" value="Thriller"> 🔪 Thriller
+            </label>
+
+        </div>
+
+        <button type="submit" style="background: #c2185b; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 50px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+            Get Recommendations 🚀
+        </button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Movie Recommender</title>
+    <style>
+        /* Un stil simplu pentru bara de sus */
+        body { margin: 0; font-family: sans-serif; background-color: #f4f4f4; }
+
+        .navbar {
+            background-color: #333;
+            overflow: hidden;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+
+        .nav-left a {
+            color: white;
+            text-decoration: none;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .nav-right a {
+            color: #ccc;
+            text-decoration: none;
+            margin-left: 20px;
+            font-size: 16px;
+        }
+
+        .nav-right a:hover {
+            color: white;
+        }
+
+        .content {
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="nav-left">
+            <a href="{% url 'main' %}">🎬 SmartMovie</a>
+        </div>
+
+        <div class="nav-right">
+            <span>Hello, {{ user.username }}!</span>
+            <a href="{% url 'profile' %}">👤 My Profile</a>
+            <a href="{% url 'logout' %}" style="color: #ff6b6b;">Log Out</a>
+        </div>
+    </div>
+
+    <div class="content">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+</body>
+</html>

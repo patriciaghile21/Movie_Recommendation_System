@@ -15,6 +15,7 @@ from .handlers import AuthenticationHandler, EmailVerificationHandler, ReviewRat
 
 def index(request):
     """Simple view to render the combined Login/Signup page."""
+    # Presupunem că auth.html a rămas în folderul Authentication
     return render(request, "Authentication/auth.html")
 
 
@@ -41,7 +42,9 @@ def sign_up(request):
         # 3. Auto-login after signup
         login(request, user)
         messages.success(request, f"Welcome, {username}! Account created.")
-        return redirect("index")
+
+        # CORECT: Redirect către URL-ul cu name="main"
+        return redirect("main")
 
     return redirect("index")
 
@@ -55,7 +58,8 @@ def login_view(request):
 
         if user is not None:
             login(request, user)
-            return redirect("index")
+            # CORECT: Redirect către URL-ul cu name="main"
+            return redirect("main")
         else:
             messages.error(request, "Invalid username or password.")
             return redirect("index")
@@ -66,6 +70,57 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect("index")
+
+
+# --- APPLICATION VIEWS ---
+
+@login_required
+def main_window(request):
+    """Renders the main dashboard for genre selection."""
+    # ACTUALIZAT: Caută în folderul mainpage
+    return render(request, "mainpage/main.html")
+
+
+@login_required
+def user_profile(request):
+    """Renders the user profile page."""
+    # Mock data for friends
+    mock_friends = [
+        {'username': 'Cristina'},
+        {'username': 'Andrei'},
+        {'username': 'Dolha'},
+    ]
+
+    context = {
+        'user': request.user,
+        'friends': mock_friends
+    }
+    # ACTUALIZAT: Caută în folderul mainpage
+    return render(request, "mainpage/profile.html", context)
+
+
+@login_required
+def recommendations(request):
+    """Handles the recommendation logic."""
+    if request.method == "POST":
+        selected_genres = request.POST.getlist('genres')
+
+        # Mock Movie Data
+        mock_movies = [
+            {'title': 'Inception', 'year': 2010, 'rating': 8.8, 'genres': 'Sci-Fi'},
+            {'title': 'The Dark Knight', 'year': 2008, 'rating': 9.0, 'genres': 'Action'},
+            {'title': 'Titanic', 'year': 1997, 'rating': 7.8, 'genres': 'Romance'},
+        ]
+
+        context = {
+            'movies': mock_movies,
+            'selected_genres': selected_genres
+        }
+        # ACTUALIZAT: Caută în folderul mainpage
+        return render(request, "mainpage/recommendations.html", context)
+
+    # Redirect dacă intră direct
+    return redirect("main")
 
 
 # --- REVIEW CHAIN LOGIC ---
@@ -89,19 +144,14 @@ def post_review_api_view(request):
     if request.method != 'POST':
         return JsonResponse({'status': 405, 'message': "Method not allowed"}, status=405)
 
-    # Pass the request through the chain
     result = REVIEW_CHAIN_START.handle(request)
 
-    # If the chain returns a successful status
     if result.get('status') == 200:
         try:
-            # data = json.loads(request.body)
-            # Logic to save the review to the database would go here
             return JsonResponse({'status': 201, 'message': "Review Posted Successfully"}, status=201)
         except Exception as e:
             return JsonResponse({'status': 400, 'message': f"Error: {e}"}, status=400)
     else:
-        # Return the specific error from the handler that failed (Auth, Email, or Rate Limit)
         return JsonResponse(
             {'status': result.get('status'), 'message': result.get('message')},
             status=result.get('status')
