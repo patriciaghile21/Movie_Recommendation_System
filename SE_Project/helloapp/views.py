@@ -6,16 +6,13 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 
-# Assuming these are defined in your project
-from .models import Message, Movie
+from .models import Message, Movie, Profile
+from .patterns import RecommendationEngine, KFrameworkBridge
 from .handlers import AuthenticationHandler, EmailVerificationHandler, ReviewRateLimitingHandler
-
 
 # --- AUTHENTICATION VIEWS ---
 
 def index(request):
-    """Simple view to render the combined Login/Signup page."""
-    # Presupunem că auth.html a rămas în folderul Authentication
     return render(request, "Authentication/auth.html")
 
 
@@ -26,7 +23,6 @@ def sign_up(request):
         password1 = request.POST.get("password1")
         password2 = request.POST.get("password2")
 
-        # 1. Validation
         if password1 != password2:
             messages.error(request, "Passwords do not match.")
             return redirect("index")
@@ -35,15 +31,15 @@ def sign_up(request):
             messages.error(request, "Username already exists.")
             return redirect("index")
 
-        # 2. Creation
         user = User.objects.create_user(username, email, password1)
         user.save()
 
-        # 3. Auto-login after signup
+        # Auto-create profile with default birthdate (can be updated later)
+        from datetime import date
+        Profile.objects.create(user=user, birthdate=date(2000, 1, 1))
+
         login(request, user)
         messages.success(request, f"Welcome, {username}! Account created.")
-
-        # CORECT: Redirect către URL-ul cu name="main"
         return redirect("main")
 
     return redirect("index")
@@ -58,7 +54,6 @@ def login_view(request):
 
         if user is not None:
             login(request, user)
-            # CORECT: Redirect către URL-ul cu name="main"
             return redirect("main")
         else:
             messages.error(request, "Invalid username or password.")
@@ -76,15 +71,11 @@ def logout_view(request):
 
 @login_required
 def main_window(request):
-    """Renders the main dashboard for genre selection."""
-    # ACTUALIZAT: Caută în folderul mainpage
     return render(request, "mainpage/main.html")
 
 
 @login_required
 def user_profile(request):
-    """Renders the user profile page."""
-    # Mock data for friends
     mock_friends = [
         {'username': 'Cristina'},
         {'username': 'Andrei'},
@@ -95,31 +86,53 @@ def user_profile(request):
         'user': request.user,
         'friends': mock_friends
     }
-    # ACTUALIZAT: Caută în folderul mainpage
     return render(request, "mainpage/profile.html", context)
 
 
 @login_required
 def recommendations(request):
-    """Handles the recommendation logic."""
     if request.method == "POST":
         selected_genres = request.POST.getlist('genres')
 
-        # Mock Movie Data
-        mock_movies = [
-            {'title': 'Inception', 'year': 2010, 'rating': 8.8, 'genres': 'Sci-Fi'},
-            {'title': 'The Dark Knight', 'year': 2008, 'rating': 9.0, 'genres': 'Action'},
-            {'title': 'Titanic', 'year': 1997, 'rating': 7.8, 'genres': 'Romance'},
-        ]
+        # SWITCH: True = K Framework (Strict/Slow), False = Visitor Pattern (Fast)
+        USE_STRICT_K_MODE = True
+
+        if selected_genres:
+            candidate_movies = Movie.objects.filter(genres__name__in=selected_genres).distinct()
+        else:
+            candidate_movies = Movie.objects.all()
+
+        try:
+            profile = Profile.objects.get(user=request.user)
+        except Profile.DoesNotExist:
+            from datetime import date
+            profile = Profile.objects.create(user=request.user, birthdate=date(2000, 1, 1))
+
+        # Select Verification Engine
+        if USE_STRICT_K_MODE:
+            print("🔴 MODE: STRICT K-FRAMEWORK (Running krun for each movie...)")
+            engine = KFrameworkBridge()
+        else:
+            print("🟢 MODE: PYTHON VISITOR PATTERN (Fast check)")
+            engine = RecommendationEngine()
+
+        valid_movies = []
+
+        for movie in candidate_movies:
+            errors = engine.check_movie(request.user, movie, profile)
+
+            if not errors:
+                valid_movies.append(movie)
+            else:
+                print(f"BLOCKED ({'K' if USE_STRICT_K_MODE else 'Visitor'}): {movie.name} -> {errors}")
 
         context = {
-            'movies': mock_movies,
-            'selected_genres': selected_genres
+            'movies': valid_movies,
+            'selected_genres': selected_genres,
+            'is_k_mode': USE_STRICT_K_MODE
         }
-        # ACTUALIZAT: Caută în folderul mainpage
         return render(request, "mainpage/recommendations.html", context)
 
-    # Redirect dacă intră direct
     return redirect("main")
 
 
@@ -131,7 +144,6 @@ def initialize_review_chain():
     email_handler = EmailVerificationHandler()
     rate_limit_handler = ReviewRateLimitingHandler()
 
-    # Link the handlers
     auth_handler.set_next(email_handler).set_next(rate_limit_handler)
     return auth_handler
 

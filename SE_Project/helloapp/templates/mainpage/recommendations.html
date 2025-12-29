@@ -22,9 +22,14 @@
                 🎬 POSTER
             </div>
 
-            <h3 style="margin: 10px 0; color: #333;">{{ movie.title }}</h3>
-            <p style="color: #7f8c8d; font-size: 14px;">{{ movie.year }} | {{ movie.genres }}</p>
-            <p style="font-weight: bold; color: #f39c12; font-size: 18px;">⭐ {{ movie.rating }}/10</p>
+            <h3 style="margin: 10px 0; color: #333;">{{ movie.name }}</h3>
+
+            <p style="color: #7f8c8d; font-size: 14px;">
+                {{ movie.releaseDate }} |
+                {% for genre in movie.genres.all %}{{ genre.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            </p>
+
+            <p style="font-weight: bold; color: #f39c12; font-size: 18px;">⭐ N/A</p>
 
             <div style="margin-top: 15px;">
                 <span style="background: #27ae60; color: white; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;">
@@ -33,7 +38,7 @@
             </div>
         </div>
         {% empty %}
-            <p>No movies found based on your selection.</p>
+            <p>No movies found based on your selection (or blocked by Safety Rules).</p>
         {% endfor %}
     </div>
 {% endblock %}
