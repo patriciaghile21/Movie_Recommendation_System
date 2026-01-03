@@ -20,8 +20,8 @@ class Genre(models.Model):
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     birthdate = models.DateField()
-    is_email_verified = models.BooleanField(default=False)
     genres = models.ManyToManyField(Genre, blank=True)
+    is_onboarded = models.BooleanField(default=False)
 
     def __str__(self):
         return self.user.username

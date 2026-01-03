@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Select Genres - Movie Recommendation</title>
+    <style>
+        body { background-color: #fce4ec; font-family: 'Segoe UI', sans-serif; }
+        .auth-container { max-width: 600px; margin: 50px auto; background-color: #FFB6C1; padding: 40px; border-radius: 15px; text-align: center; }
+        .auth-card { background: white; padding: 30px; border-radius: 12px; text-align: left; }
+        .genre-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
+        .genre-option { padding: 10px; background: white; border: 2px solid #ff69b4; border-radius: 8px; cursor: pointer; color: #c2185b; font-weight: bold; text-align: center; display: block; }
+        .genre-option input { margin-right: 5px; }
+        .btn-recommend { background: #c2185b; color: white; border: none; padding: 15px; font-size: 18px; border-radius: 50px; cursor: pointer; font-weight: bold; width: 100%; }
+        .error-box { color: #c2185b; font-weight: bold; background: #fff0f5; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ff69b4; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="auth-container">
+    <h1 style="color: #880e4f;">Step 2: Your Taste 🎬</h1>
+    <p style="color: #6a1b4d;">Tell us what you like to unlock your recommendations.</p>
+    {% if messages %}{% for message in messages %}<div class="error-box">{{ message }}</div>{% endfor %}{% endif %}
+    <div class="auth-card">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="genre-grid">
+                {% for genre in all_genres %}
+                <label class="genre-option">
+                    <input type="checkbox" name="genres" value="{{ genre.id }}"> {{ genre.name }}
+                </label>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn-recommend">Complete Registration 🍿</button>
+        </form>
+    </div>
+</div>
+</body>
+</html>
