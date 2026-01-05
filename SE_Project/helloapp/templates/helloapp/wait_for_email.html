@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verify Login</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
+        .spinner { font-size: 2em; margin: 20px; animation: spin 2s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <h2>Check your Email</h2>
+    <p>We sent a verification link to your inbox.</p>
+    <p>Please click <strong>YES</strong> to continue.</p>
+
+    <div class="spinner">↻</div>
+    <div id="status-msg">Waiting for confirmation...</div>
+
+    <script>
+        const statusMsg = document.getElementById("status-msg");
+
+        // Check status every 2 seconds
+        const interval = setInterval(() => {
+            fetch("{% url 'check_status' %}")
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'approved') {
+                    statusMsg.innerText = "Success! Redirecting...";
+                    clearInterval(interval);
+                    window.location.href = "{% url 'index' %}";
+                }
+                else if (data.status === 'onboarding') {
+                    // Redirect to onboarding if they haven't selected genres yet
+                    window.location.href = "{% url 'select_genres' %}";
+                }
+                else if (data.status === 'denied') {
+                    statusMsg.innerText = "Login Denied.";
+                    clearInterval(interval);
+                    alert("You denied the request.");
+                    window.location.href = "{% url 'login' %}";
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }, 2000);
+    </script>
+</body>
+</html>

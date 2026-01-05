@@ -1,4 +1,7 @@
+import uuid
+
 from django.db import models
+from django.utils import timezone
 
 # Create your models here.
 
@@ -49,3 +52,14 @@ class Review(models.Model):
 
     def __str__(self):
         return "Review from " + self.user.username + " for " + self.movie.name
+
+
+class LoginAttempt(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    token = models.UUIDField(default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_confirmed = models.BooleanField(default=False)
+
+    def is_valid(self):
+        # Token expires after 5 minutes (300 seconds)
+        return (timezone.now() - self.created_at).total_seconds() < 300

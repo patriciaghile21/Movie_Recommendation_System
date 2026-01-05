@@ -1,76 +1,18 @@
 import json
+import uuid
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.shortcuts import render, redirect
+from django.core.mail import send_mail
+from django.urls import reverse
+from django.conf import settings
 
-# Assuming these are defined in your project
-from .models import Message, Movie
-from django.contrib import messages
-from django.contrib.auth.models import User
-from django.shortcuts import render, redirect
+# Project imports
+from .models import Message, Movie, Profile, Genre, LoginAttempt
 from .handlers import AuthenticationHandler, EmailVerificationHandler, ReviewRateLimitingHandler
-from .models import Profile, Genre
-
-
-# --- AUTHENTICATION VIEWS ---
-
-def index(request):
-    """Simple view to render the combined Login/Signup page."""
-    return render(request, "Authentication/auth.html")
-
-
-def sign_up(request):
-    if request.method == "POST":
-        username = request.POST.get("username")
-        email = request.POST.get("email")
-        password1 = request.POST.get("password1")
-        password2 = request.POST.get("password2")
-
-        # 1. Validation
-        if password1 != password2:
-            messages.error(request, "Passwords do not match.")
-            return redirect("index")
-
-        if User.objects.filter(username=username).exists():
-            messages.error(request, "Username already exists.")
-            return redirect("index")
-
-        # 2. Creation
-        user = User.objects.create_user(username, email, password1)
-        user.save()
-
-        # 3. Auto-login after signup
-        login(request, user)
-        messages.success(request, f"Welcome, {username}! Account created.")
-        return redirect("index")
-
-    return redirect("index")
-
-
-def login_view(request):
-    if request.method == "POST":
-        username = request.POST.get("username")
-        password1 = request.POST.get("password1")
-
-        user = authenticate(request, username=username, password=password1)
-
-        if user is not None:
-            login(request, user)
-            return redirect("index")
-        else:
-            messages.error(request, "Invalid username or password.")
-            return redirect("index")
-
-    return redirect("index")
-
-
-def logout_view(request):
-    logout(request)
-    return redirect("index")
 
 
 # --- REVIEW CHAIN LOGIC ---
@@ -92,24 +34,23 @@ def post_review_api_view(request):
     if request.method != 'POST':
         return JsonResponse({'status': 405, 'message': "Method not allowed"}, status=405)
 
-    # Pass the request through the chain
     result = REVIEW_CHAIN_START.handle(request)
 
-    # If the chain returns a successful status
     if result.get('status') == 200:
         try:
             data = json.loads(request.body)
+            # Add logic to save review here if needed
             return JsonResponse({'status': 201, 'message': "Review Posted Successfully"}, status=201)
         except Exception as e:
             return JsonResponse({'status': 400, 'message': f"Error: {e}"}, status=400)
     else:
-        # Return the specific error from the handler that failed (Auth, Email, or Rate Limit)
         return JsonResponse(
             {'status': result.get('status'), 'message': result.get('message')},
             status=result.get('status')
         )
 
 
+# --- AUTHENTICATION & ONBOARDING ---
 
 def registerPage(request):
     if request.user.is_authenticated:
@@ -137,6 +78,7 @@ def registerPage(request):
         user = User.objects.create_user(username=username, email=email, password=password1)
         Profile.objects.create(user=user, birthdate=birthdate)
 
+        # Log them in immediately after signup (Skipping 2FA for first registration)
         login(request, user)
         return redirect("select_genres")
 
@@ -163,25 +105,114 @@ def select_genres(request):
     return render(request, 'helloapp/select_genres.html', {'all_genres': all_genres})
 
 
+# --- 2FA LOGIN LOGIC ---
+
 def loginPage(request):
     if request.user.is_authenticated:
         return redirect("index")
 
     if request.method == "POST":
         username = request.POST.get("username")
-        password1 = request.POST.get("password1")
-        user = authenticate(request, username=username, password=password1)
+        password = request.POST.get("password1")
+
+        # 1. Verify Password
+        user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            login(request, user)
-            if not user.profile.is_onboarded:
-                return redirect("select_genres")
-            return redirect("index")
+            # 2. Cleanup old attempts & Create new one
+            LoginAttempt.objects.filter(user=user).delete()
+            attempt = LoginAttempt.objects.create(user=user)
+
+            # 3. Generate Links
+            yes_link = request.build_absolute_uri(reverse('approve_login', args=[str(attempt.token)]))
+            no_link = request.build_absolute_uri(reverse('deny_login', args=[str(attempt.token)]))
+
+            # 4. Send Email
+            email_body = f"""
+            Hello {user.username},
+
+            We noticed a login attempt. Is this you?
+
+            [ YES - LOG ME IN ]
+            {yes_link}
+
+            [ NO - BLOCK THIS ]
+            {no_link}
+            """
+
+            # Note: Ensure EMAIL_BACKEND is set in settings.py
+            send_mail(
+                "Security Check: Is this you?",
+                email_body,
+                settings.DEFAULT_FROM_EMAIL or 'noreply@example.com',
+                [user.email],
+                fail_silently=False,
+            )
+
+            # 5. Store ID in session so the polling view knows who to check
+            request.session['pending_2fa_user'] = user.id
+
+            # 6. Show the "Waiting" screen
+            return render(request, "helloapp/wait_for_email.html")
+
         else:
             messages.error(request, "Invalid username or password.")
 
     return render(request, "helloapp/login.html")
 
+
+def check_login_status(request):
+    """Called by JS every few seconds to check if the user clicked YES."""
+    user_id = request.session.get('pending_2fa_user')
+
+    if not user_id:
+        return JsonResponse({'status': 'error'})
+
+    try:
+        attempt = LoginAttempt.objects.get(user_id=user_id)
+
+        if attempt.is_confirmed:
+            # SUCCESS: Log the user in
+            user = User.objects.get(id=user_id)
+            login(request, user)
+
+            # Cleanup
+            attempt.delete()
+            del request.session['pending_2fa_user']
+
+            # Check onboarding status
+            if hasattr(user, 'profile') and not user.profile.is_onboarded:
+                return JsonResponse({'status': 'onboarding'})  # Special status for JS redirect
+
+            return JsonResponse({'status': 'approved'})
+
+    except LoginAttempt.DoesNotExist:
+        # If the record is gone, it means they clicked NO (deleted)
+        return JsonResponse({'status': 'denied'})
+
+    return JsonResponse({'status': 'waiting'})
+
+
+def approve_login_view(request, token):
+    """Triggered when user clicks YES in the email."""
+    attempt = get_object_or_404(LoginAttempt, token=token)
+
+    if attempt.is_valid():
+        attempt.is_confirmed = True
+        attempt.save()
+        return render(request, "helloapp/email_result.html", {"message": "Login Approved! You can close this tab."})
+    else:
+        return render(request, "helloapp/email_result.html", {"message": "Link expired."})
+
+
+def deny_login_view(request, token):
+    """Triggered when user clicks NO in the email."""
+    attempt = get_object_or_404(LoginAttempt, token=token)
+    attempt.delete()
+    return render(request, "helloapp/email_result.html", {"message": "Login Blocked."})
+
+
+# --- MAIN APP VIEWS ---
 
 @login_required
 def index(request):
@@ -194,6 +225,7 @@ def logout_view(request):
     logout(request)
     messages.info(request, "You have successfully logged out.")
     return redirect("login")
+
 
 def error_404_view(request, exception):
     return render(request, 'helloapp/404.html', status=404)
