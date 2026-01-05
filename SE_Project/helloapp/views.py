@@ -107,6 +107,8 @@ def select_genres(request):
 
 # --- 2FA LOGIN LOGIC ---
 
+# helloapp/views.py
+
 def loginPage(request):
     if request.user.is_authenticated:
         return redirect("index")
@@ -115,44 +117,58 @@ def loginPage(request):
         username = request.POST.get("username")
         password = request.POST.get("password1")
 
-        # 1. Verify Password
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            # 2. Cleanup old attempts & Create new one
+            # Cleanup & Create Token
             LoginAttempt.objects.filter(user=user).delete()
             attempt = LoginAttempt.objects.create(user=user)
 
-            # 3. Generate Links
+            # Generate URLs
             yes_link = request.build_absolute_uri(reverse('approve_login', args=[str(attempt.token)]))
             no_link = request.build_absolute_uri(reverse('deny_login', args=[str(attempt.token)]))
 
-            # 4. Send Email
-            email_body = f"""
+            # --- 1. Plain Text Version (Fallback) ---
+            text_content = f"""
             Hello {user.username},
+            Is this you trying to log in?
 
-            We noticed a login attempt. Is this you?
-
-            [ YES - LOG ME IN ]
-            {yes_link}
-
-            [ NO - BLOCK THIS ]
-            {no_link}
+            YES: {yes_link}
+            NO: {no_link}
             """
 
-            # Note: Ensure EMAIL_BACKEND is set in settings.py
+            # --- 2. HTML Version (The Buttons) ---
+            html_content = f"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                <h2 style="color: #333;">Login Verification</h2>
+                <p style="font-size: 16px; color: #555;">Hello <strong>{user.username}</strong>,</p>
+                <p style="font-size: 16px; color: #555;">We noticed a login attempt on your account. Is this you?</p>
+
+                <div style="margin: 30px 0;">
+                    <a href="{yes_link}" style="background-color: #28a745; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; margin-right: 15px;">
+                        YES, LOG ME IN
+                    </a>
+
+                    <a href="{no_link}" style="background-color: #dc3545; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                        NO, BLOCK IT
+                    </a>
+                </div>
+
+                
+            </div>
+            """
+
+            # --- 3. Send Email with Both Versions ---
             send_mail(
-                "Security Check: Is this you?",
-                email_body,
-                settings.DEFAULT_FROM_EMAIL or 'noreply@example.com',
-                [user.email],
+                subject="Security Check: Is this you?",
+                message=text_content,  # Plain text fallback
+                from_email=settings.DEFAULT_FROM_EMAIL or 'noreply@example.com',
+                recipient_list=[user.email],
                 fail_silently=False,
+                html_message=html_content  # <--- This is the magic part
             )
 
-            # 5. Store ID in session so the polling view knows who to check
             request.session['pending_2fa_user'] = user.id
-
-            # 6. Show the "Waiting" screen
             return render(request, "helloapp/wait_for_email.html")
 
         else:
