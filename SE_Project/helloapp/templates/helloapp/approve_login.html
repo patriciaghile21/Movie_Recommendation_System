@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Confirm Login</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+    <h2>Security Check</h2>
+    <p>Please click the button below to confirm your login.</p>
+
+    <form method="POST">
+        {% csrf_token %}
+        <button type="submit">Confirm Login</button>
+    </form>
+</body>
+</html>

@@ -197,13 +197,17 @@ def approve_login_view(request, token):
     """Triggered when user clicks YES in the email."""
     attempt = get_object_or_404(LoginAttempt, token=token)
 
-    if attempt.is_valid():
-        attempt.is_confirmed = True
-        attempt.save()
-        return render(request, "helloapp/email_result.html", {"message": "Login Approved! You can close this tab."})
-    else:
-        return render(request, "helloapp/email_result.html", {"message": "Link expired."})
+    # If the user clicks the button on the page
+    if request.method == "POST":
+        if attempt.is_valid():
+            attempt.is_confirmed = True
+            attempt.save()
+            return render(request, "helloapp/email_result.html", {"message": "Login Approved! You can close this tab."})
+        else:
+            return render(request, "helloapp/email_result.html", {"message": "Link expired."})
 
+    # If the user (or email scanner) just visits the link
+    return render(request, "helloapp/approve_login.html", {'token': token})
 
 def deny_login_view(request, token):
     """Triggered when user clicks NO in the email."""
