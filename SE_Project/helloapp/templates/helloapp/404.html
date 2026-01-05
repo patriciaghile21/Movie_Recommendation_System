@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>404 - Scene Not Found</title>
+    <style>
+        body { background-color: #fce4ec; font-family: 'Segoe UI', sans-serif; text-align: center; padding: 50px; }
+        .error-container { max-width: 600px; margin: auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border: 2px solid #ff69b4; }
+        h1 { color: #880e4f; font-size: 80px; margin: 0; }
+        h2 { color: #c2185b; }
+        p { color: #6a1b4d; font-size: 18px; line-height: 1.6; }
+        .btn-home { display: inline-block; margin-top: 20px; background: #c2185b; color: white; padding: 15px 30px; border-radius: 50px; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1>404</h1>
+        <h2>Cut! That scene is missing. 🎬</h2>
+        <p>Sorry, we couldn't find the link you were looking for. It might have been deleted, or the director changed the script.</p>
+        <a href="{% url 'index' %}" class="btn-home">Back to the Movie List 🍿</a>
+    </div>
+</body>
+</html>

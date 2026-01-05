@@ -2,14 +2,12 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Page Route
-    path("", views.index, name="index"),
+    path('', views.registerPage, name = 'register'),
+    path('login/', views.loginPage, name = 'login'),
+    path('index/', views.index, name = 'index'),
+    path('logout/', views.logout_view, name = 'logout'),
+    path('select_genres/', views.select_genres, name = 'select_genres'),
 
-    # Auth Logic Routes
-    path("signup/", views.sign_up, name="signup"),
-    path("login/", views.login_view, name="login"),
-    path("logout/", views.logout_view, name="logout"),
-
-    # API Routes
     path("api/post-review/", views.post_review_api_view, name="post_review"),
+
 ]
