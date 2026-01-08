@@ -1,5 +1,4 @@
 import json
-import uuid
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
@@ -10,36 +9,36 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from django.conf import settings
 
-# Project imports
 from .models import Message, Movie, Profile, Genre, LoginAttempt
 from .handlers import AuthenticationHandler, EmailVerificationHandler, ReviewRateLimitingHandler
+from .protocols import SessionProtocol, SessionState
 
-
-# --- REVIEW CHAIN LOGIC ---
 
 def initialize_review_chain():
-    """Initializes the Chain of Responsibility for reviews."""
     auth_handler = AuthenticationHandler()
     email_handler = EmailVerificationHandler()
     rate_limit_handler = ReviewRateLimitingHandler()
     auth_handler.set_next(email_handler).set_next(rate_limit_handler)
     return auth_handler
 
-
 REVIEW_CHAIN_START = initialize_review_chain()
+
 
 
 @login_required
 def post_review_api_view(request):
+    protocol = SessionProtocol(request)
     if request.method != 'POST':
         return JsonResponse({'status': 405, 'message': "Method not allowed"}, status=405)
+
+    if not protocol.is_at(SessionState.AUTHENTICATED):
+        return JsonResponse({'status': 403, 'message': "Protocol Error: Complete onboarding"}, status=403)
 
     result = REVIEW_CHAIN_START.handle(request)
 
     if result.get('status') == 200:
         try:
             data = json.loads(request.body)
-            # Add logic to save review here if needed
             return JsonResponse({'status': 201, 'message': "Review Posted Successfully"}, status=201)
         except Exception as e:
             return JsonResponse({'status': 400, 'message': f"Error: {e}"}, status=400)
@@ -49,10 +48,8 @@ def post_review_api_view(request):
             status=result.get('status')
         )
 
-
-# --- AUTHENTICATION & ONBOARDING ---
-
 def registerPage(request):
+    protocol = SessionProtocol(request)
     if request.user.is_authenticated:
         return redirect("index")
 
@@ -78,16 +75,16 @@ def registerPage(request):
         user = User.objects.create_user(username=username, email=email, password=password1)
         Profile.objects.create(user=user, birthdate=birthdate)
 
-        # Log them in immediately after signup (Skipping 2FA for first registration)
         login(request, user)
+        protocol.transition_to(SessionState.AWAITING_ONBOARDING)
         return redirect("select_genres")
 
     return render(request, 'helloapp/register.html')
 
-
 @login_required
 def select_genres(request):
-    if request.user.profile.is_onboarded:
+    protocol = SessionProtocol(request)
+    if not protocol.is_at(SessionState.AWAITING_ONBOARDING):
         return redirect("index")
 
     if request.method == "POST":
@@ -99,153 +96,109 @@ def select_genres(request):
             profile.genres.set(selected_genres_ids)
             profile.is_onboarded = True
             profile.save()
+            protocol.transition_to(SessionState.AUTHENTICATED)
             return redirect("index")
 
     all_genres = Genre.objects.all()
     return render(request, 'helloapp/select_genres.html', {'all_genres': all_genres})
 
-
-# --- 2FA LOGIN LOGIC ---
-
-# helloapp/views.py
-
 def loginPage(request):
+    protocol = SessionProtocol(request)
     if request.user.is_authenticated:
         return redirect("index")
 
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password1")
-
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            # Cleanup & Create Token
             LoginAttempt.objects.filter(user=user).delete()
             attempt = LoginAttempt.objects.create(user=user)
 
-            # Generate URLs
             yes_link = request.build_absolute_uri(reverse('approve_login', args=[str(attempt.token)]))
             no_link = request.build_absolute_uri(reverse('deny_login', args=[str(attempt.token)]))
 
-            # --- 1. Plain Text Version (Fallback) ---
-            text_content = f"""
-            Hello {user.username},
-            Is this you trying to log in?
-
-            YES: {yes_link}
-            NO: {no_link}
-            """
-
-            # --- 2. HTML Version (The Buttons) ---
+            text_content = f"Hello {user.username}, Is this you trying to log in?\nYES: {yes_link}\nNO: {no_link}"
             html_content = f"""
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-                <h2 style="color: #333;">Login Verification</h2>
-                <p style="font-size: 16px; color: #555;">Hello <strong>{user.username}</strong>,</p>
-                <p style="font-size: 16px; color: #555;">We noticed a login attempt on your account. Is this you?</p>
+                <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background-color: #fce4ec; border-radius: 20px;">
+                    <div style="background-color: white; padding: 30px; border-radius: 15px; text-align: center; border: 2px solid #FFB6C1;">
+                        <h2 style="color: #880e4f;">Movie Night Security 🍿</h2>
+                        <p>Hello <strong>{user.username}</strong>, was this you?</p>
+                        <div style="margin: 30px 0;">
+                            <a href="{yes_link}" style="display: inline-block; background-color: #c2185b; color: white; padding: 14px 28px; text-decoration: none; border-radius: 50px; font-weight: bold;">YES, IT'S ME 🎬</a>
+                            <br><br>
+                            <a href="{no_link}" style="color: #c2185b; text-decoration: none; font-size: 14px;">No, it wasn't me!</a>
+                        </div>
+                    </div>
+                </div>"""
 
-                <div style="margin: 30px 0;">
-                    <a href="{yes_link}" style="background-color: #28a745; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; margin-right: 15px;">
-                        YES, LOG ME IN
-                    </a>
-
-                    <a href="{no_link}" style="background-color: #dc3545; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                        NO, BLOCK IT
-                    </a>
-                </div>
-
-                
-            </div>
-            """
-
-            # --- 3. Send Email with Both Versions ---
             send_mail(
-                subject="Security Check: Is this you?",
-                message=text_content,  # Plain text fallback
+                subject="Security Check",
+                message=text_content,
                 from_email=settings.DEFAULT_FROM_EMAIL or 'noreply@example.com',
                 recipient_list=[user.email],
                 fail_silently=False,
-                html_message=html_content  # <--- This is the magic part
+                html_message=html_content
             )
 
             request.session['pending_2fa_user'] = user.id
+            protocol.transition_to(SessionState.AWAITING_2FA)
             return render(request, "helloapp/wait_for_email.html")
-
         else:
             messages.error(request, "Invalid username or password.")
 
     return render(request, "helloapp/login.html")
 
-
 def check_login_status(request):
-    """Called by JS every few seconds to check if the user clicked YES."""
+    protocol = SessionProtocol(request)
     user_id = request.session.get('pending_2fa_user')
-
     if not user_id:
         return JsonResponse({'status': 'error'})
 
     try:
         attempt = LoginAttempt.objects.get(user_id=user_id)
-
         if attempt.is_confirmed:
-            # SUCCESS: Log the user in
             user = User.objects.get(id=user_id)
             login(request, user)
-
-            # Cleanup
             attempt.delete()
             del request.session['pending_2fa_user']
-
-            # Check onboarding status
             if hasattr(user, 'profile') and not user.profile.is_onboarded:
-                return JsonResponse({'status': 'onboarding'})  # Special status for JS redirect
-
+                protocol.transition_to(SessionState.AWAITING_ONBOARDING)
+                return JsonResponse({'status': 'onboarding'})
+            protocol.transition_to(SessionState.AUTHENTICATED)
             return JsonResponse({'status': 'approved'})
-
     except LoginAttempt.DoesNotExist:
-        # If the record is gone, it means they clicked NO (deleted)
         return JsonResponse({'status': 'denied'})
 
     return JsonResponse({'status': 'waiting'})
 
-
 def approve_login_view(request, token):
-    """Triggered when user clicks YES in the email."""
     attempt = get_object_or_404(LoginAttempt, token=token)
-
-    # If the user clicks the button on the page
     if request.method == "POST":
         if attempt.is_valid():
             attempt.is_confirmed = True
             attempt.save()
-            return render(request, "helloapp/email_result.html", {"message": "Login Approved! You can close this tab."})
+            return render(request, "helloapp/email_result.html", {"message": "Login Approved!"})
         else:
             return render(request, "helloapp/email_result.html", {"message": "Link expired."})
-
-    # If the user (or email scanner) just visits the link
     return render(request, "helloapp/approve_login.html", {'token': token})
 
 def deny_login_view(request, token):
-    """Triggered when user clicks NO in the email."""
     attempt = get_object_or_404(LoginAttempt, token=token)
     attempt.delete()
     return render(request, "helloapp/email_result.html", {"message": "Login Blocked."})
 
-
-# --- MAIN APP VIEWS ---
-
 @login_required
 def index(request):
-    if not request.user.profile.is_onboarded:
+    protocol = SessionProtocol(request)
+    if protocol.is_at(SessionState.AWAITING_ONBOARDING):
         return redirect("select_genres")
     return render(request, 'helloapp/index.html')
 
-
 def logout_view(request):
     logout(request)
-    messages.info(request, "You have successfully logged out.")
     return redirect("login")
-
 
 def error_404_view(request, exception):
     return render(request, 'helloapp/404.html', status=404)

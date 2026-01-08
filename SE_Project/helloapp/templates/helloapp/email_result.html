@@ -1,11 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Security Check</title>
-    <style>body { font-family: sans-serif; text-align: center; padding: 50px; }</style>
+    <title>Status - Movie Night</title>
+    <style>
+        body { background-color: #fce4ec; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .auth-container { max-width: 400px; background-color: #FFB6C1; padding: 40px; border-radius: 15px; text-align: center; }
+        .message-box { background: white; padding: 20px; border-radius: 12px; color: #c2185b; font-weight: bold; font-size: 1.2em; }
+    </style>
 </head>
 <body>
-    <h1>{{ message }}</h1>
-    <p>Return to your original device/tab.</p>
+    <div class="auth-container">
+        <div class="message-box">
+            {{ message }}
+            <p style="font-size: 0.8em; font-weight: normal; margin-top: 10px;">You can now return to your original tab.</p>
+        </div>
+    </div>
 </body>
 </html>

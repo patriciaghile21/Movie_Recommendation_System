@@ -1,28 +1,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Confirm Login</title>
+    <title>Confirm Login - Movie Night</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
-        button {
-            background-color: #28a745;
-            color: white;
-            padding: 15px 30px;
-            font-size: 18px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover { background-color: #218838; }
+        body { background-color: #fce4ec; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .auth-container { max-width: 400px; background-color: #FFB6C1; padding: 40px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); text-align: center; }
+        .auth-title { color: #880e4f; margin-bottom: 20px; }
+        .btn-confirm { background: #28a745; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 50px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.3s; }
+        .btn-confirm:hover { background: #218838; transform: scale(1.05); }
     </style>
 </head>
 <body>
-    <h2>Security Check</h2>
-    <p>Please click the button below to confirm your login.</p>
 
+<div class="auth-container">
+    <h1 class="auth-title">Security Check 🔒</h1>
+    <p style="color: #880e4f;">Is it really you? Click below to confirm your login.</p>
     <form method="POST">
         {% csrf_token %}
-        <button type="submit">Confirm Login</button>
+        <button type="submit" class="btn-confirm">Yes, it's me! 🎬</button>
     </form>
+</div>
+
 </body>
 </html>
