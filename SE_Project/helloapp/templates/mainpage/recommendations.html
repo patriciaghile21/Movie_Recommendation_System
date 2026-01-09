@@ -1,0 +1,35 @@
+{% extends 'mainpage/base.html' %}
+
+{% block content %}
+<div style="background-color: #FFB6C1; padding: 40px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 1200px; margin: 0 auto;">
+
+    <a href="{% url 'main' %}" style="text-decoration: none; color: #880e4f; font-weight: bold; font-size: 16px; background: rgba(255,255,255,0.6); padding: 8px 15px; border-radius: 20px; display: inline-block;">
+        ⬅ Back to Selection
+    </a>
+
+    <h2 style="margin-top: 20px; color: #880e4f; text-shadow: 1px 1px 0px rgba(255,255,255,0.3); border-bottom: 2px solid #c2185b; padding-bottom: 10px;">
+        ✨ Recommended for You
+    </h2>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 30px;">
+        {% for movie in movies %}
+
+        <div style="border: 2px solid #ff69b4; padding: 15px; border-radius: 15px; text-align: center; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.2s;">
+
+            <h3 style="margin: 10px 0; color: #880e4f; font-size: 18px;">{{ movie.title }}</h3>
+            <p style="color: #6a1b4d; font-size: 13px;">{{ movie.year }} | {{ movie.genres }}</p>
+            <p style="font-weight: bold; color: #e67e22; font-size: 18px;">⭐ {{ movie.rating }}/10</p>
+
+            <div style="margin-top: 15px;">
+                <span style="background: #27ae60; color: white; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;">
+                    ✅ Verified Safe
+                </span>
+            </div>
+        </div>
+        {% empty %}
+            <p style="color: #880e4f; font-style: italic;">No movies found based on your selection.</p>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}

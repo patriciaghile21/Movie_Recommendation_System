@@ -1,4 +1,6 @@
 import json
+
+from django.db.models import Avg
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
@@ -9,11 +11,14 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from django.conf import settings
 
-from .models import Message, Movie, Profile, Genre, LoginAttempt
+from .models import Movie, Profile, Genre, LoginAttempt, Review
 from .handlers import AuthenticationHandler, EmailVerificationHandler, ReviewRateLimitingHandler
+from .patterns import RecommendationEngine
 from .protocols import SessionProtocol, SessionState
 
 
+
+ # LOGIN AND REGISTER
 def initialize_review_chain():
     auth_handler = AuthenticationHandler()
     email_handler = EmailVerificationHandler()
@@ -22,8 +27,6 @@ def initialize_review_chain():
     return auth_handler
 
 REVIEW_CHAIN_START = initialize_review_chain()
-
-
 
 @login_required
 def post_review_api_view(request):
@@ -202,3 +205,116 @@ def logout_view(request):
 
 def error_404_view(request, exception):
     return render(request, 'helloapp/404.html', status=404)
+
+
+@login_required
+def add_friend(request, friend_id):
+    my_profile = get_object_or_404(Profile, user=request.user)
+    friend_profile = get_object_or_404(Profile, id=friend_id)
+
+    my_profile.friends.add(friend_profile)
+    friend_profile.friends.add(my_profile)
+
+    return redirect("user_profile")
+
+@login_required
+def remove_friend(request, friend_id):
+    my_profile = get_object_or_404(Profile, user=request.user)
+    friend_profile = get_object_or_404(Profile, id=friend_id)
+
+    my_profile.friends.remove(friend_profile)
+    return redirect("user_profile")
+
+@login_required
+def add_review_page(request, movie_id):
+    movie = get_object_or_404(Movie, id=movie_id)
+
+    if request.method == "POST":
+        rating = request.POST.get('rating')
+        text_content = request.POST.get('text')
+
+        Review.objects.update_or_create(
+            user=request.user,
+            movie=movie,
+            defaults={
+                'rating': rating,
+                'text': text_content
+            }
+        )
+
+        return redirect('movie_library')
+
+    return render(request, "mainpage/add_review.html", {'movie': movie})
+
+
+@login_required
+def movie_library(request):
+    all_movies = Movie.objects.exclude(review__user=request.user)
+
+    query = request.GET.get('search')
+    if query:
+        all_movies = all_movies.filter(name__icontains=query)
+
+    engine = RecommendationEngine()
+    profile = request.user.profile
+
+    safe_movies = []
+    for movie in all_movies:
+        errors = engine.check_movie(request.user, movie, profile)
+        if not errors:
+            safe_movies.append(movie)
+
+    return render(request, "mainpage/movie_library.html", {
+        'movies': safe_movies,
+        'search_query': query
+    })
+
+def main_window(request):
+    return render(request, "mainpage/main.html")
+
+def user_profile(request):
+    try:
+        my_profile = Profile.objects.get(user=request.user)
+    except Profile.DoesNotExist:
+        from datetime import date
+        my_profile = Profile.objects.create(user=request.user, birthdate=date(2000, 1, 1))
+
+    friends = my_profile.friends.all()
+
+    other_users = Profile.objects.exclude(user=request.user).exclude(id__in=friends.values_list('id', flat=True))
+
+    context = {
+        'user': request.user,
+        'friends': friends,
+        'other_users': other_users
+    }
+    return render(request, "mainpage/profile.html", context)
+
+@login_required
+def recommendations(request):
+    if request.method == "POST":
+        selected_genres = request.POST.getlist('genres')
+
+        mock_movies = [
+            {'title': 'Inception', 'year': 2010, 'rating': 8.8, 'genres': 'Sci-Fi'},
+            {'title': 'The Dark Knight', 'year': 2008, 'rating': 9.0, 'genres': 'Action'},
+            {'title': 'Titanic', 'year': 1997, 'rating': 7.8, 'genres': 'Romance'},
+        ]
+
+        context = {
+            'movies': mock_movies,
+            'selected_genres': selected_genres
+        }
+        return render(request, "mainpage/recommendations.html", context)
+
+    return redirect("main")
+
+
+def movie_detail(request, movie_id):
+    movie = get_object_or_404(Movie, id=movie_id)
+    avg_rating = Review.objects.filter(movie=movie).aggregate(Avg('rating'))['rating__avg']
+
+    return render(request, "mainpage/movie_detail.html", {
+        'movie': movie,
+        'avg_rating': avg_rating
+    })

@@ -71,7 +71,6 @@
             toggleText.innerHTML = 'Don\'t have an account? <span class="toggle-btn" onclick="toggleAuth()">Sign Up</span>';
             signupFields.classList.add('hidden');
             confirmField.classList.add('hidden');
-            // Remove required attribute so browser doesn't block login
             document.getElementById('email-field').required = false;
             document.getElementById('password2-field').required = false;
         } else {

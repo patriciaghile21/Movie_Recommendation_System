@@ -19,11 +19,15 @@
     <orderEntry type="jdk" jdkName="Python 3.14 virtualenv at C:\Users\crist\Desktop\Uni\Y3\S1\SE\Project\Software_Engineering_Project\SE_Project\.venv" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
+  <component name="PyDocumentationSettings">
+    <option name="format" value="PLAIN" />
+    <option name="myDocStringFormat" value="Plain" />
+  </component>
   <component name="TemplatesService">
     <option name="TEMPLATE_CONFIGURATION" value="Django" />
     <option name="TEMPLATE_FOLDERS">
       <list>
-        <option value="$MODULE_DIR$/../SE_Project\templates" />
+        <option value="$MODULE_DIR$/helloapp/templates" />
       </list>
     </option>
   </component>

@@ -1,0 +1,35 @@
+{% extends 'mainpage/base.html' %}
+
+{% block content %}
+<div style="background-color: #FFB6C1; padding: 40px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 800px; margin: 40px auto; font-family: sans-serif;">
+    <div style="background: white; padding: 30px; border-radius: 12px; border: 2px solid #ff69b4;">
+        
+        <h1 style="color: #880e4f; margin-bottom: 10px;">{{ movie.name }}</h1>
+        
+        <div style="margin-bottom: 20px;">
+            <span style="background: #e91e63; color: white; padding: 5px 15px; border-radius: 50px; font-weight: bold;">
+                ⭐ {% if avg_rating %}{{ avg_rating|stringformat:".1f" }}{% else %}No ratings yet{% endif %}
+            </span>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+        <p style="color: #6a1b4d;"><strong>Director:</strong> {{ movie.director }}</p>
+        <p style="color: #6a1b4d;"><strong>Studio:</strong> {{ movie.studio }}</p>
+        <p style="color: #6a1b4d;"><strong>Release Date:</strong> {{ movie.releaseDate }}</p>
+        <p style="color: #6a1b4d;"><strong>Duration:</strong> {{ movie.duration_minutes }} mins</p>
+        <p style="color: #6a1b4d;"><strong>Genres:</strong> 
+            {% for genre in movie.genres.all %}
+                {{ genre.name }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        </p>
+
+        <div style="margin-top: 30px;">
+            <a href="{% url 'add_review' movie.id %}" style="display: inline-block; background-color: #e91e63; color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; font-weight: bold;">
+                Rate this Movie
+            </a>
+            <a href="{% url 'movie_library' %}" style="margin-left: 15px; color: #880e4f; text-decoration: none; font-weight: bold;">Back to Library</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

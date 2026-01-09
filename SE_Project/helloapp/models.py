@@ -26,6 +26,8 @@ class Profile(models.Model):
     genres = models.ManyToManyField(Genre, blank=True)
     is_onboarded = models.BooleanField(default=False)
 
+    friends = models.ManyToManyField("self", blank=True, symmetrical=False)
+
     def __str__(self):
         return self.user.username
 
@@ -61,5 +63,4 @@ class LoginAttempt(models.Model):
     is_confirmed = models.BooleanField(default=False)
 
     def is_valid(self):
-        # Token expires after 5 minutes (300 seconds)
         return (timezone.now() - self.created_at).total_seconds() < 300

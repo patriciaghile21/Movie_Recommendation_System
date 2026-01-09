@@ -1,0 +1,38 @@
+{% extends 'mainpage/base.html' %}
+
+{% block content %}
+<div style="text-align: center; background-color: #FFB6C1; padding: 40px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 900px; margin: 0 auto;">
+
+    <h1 style="color: #880e4f; text-shadow: 1px 1px 2px rgba(255,255,255,0.4);">What are you in the mood for? 🍿</h1>
+    <p style="color: #6a1b4d; font-weight: bold;">Select your favorite genres and let our algorithm find your next favorite watch.</p>
+    <hr style="border-color: #ff69b4; opacity: 0.6; margin-bottom: 30px;">
+
+    <form method="POST" action="{% url 'recommendations' %}">
+        {% csrf_token %}
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 30px 0;">
+            {% for genre in all_genres %}
+            <label style="padding: 15px; background: white; border: 2px solid #ff69b4; border-radius: 12px; cursor: pointer; color: #c2185b; font-weight: bold; transition: 0.3s;" onmouseover="this.style.backgroundColor='#fff0f5'" onmouseout="this.style.backgroundColor='white'">
+                <input type="checkbox" name="genres" value="{{ genre.name }}"> {{ genre.name }}
+            </label>
+            {% endfor %}
+        </div>
+
+        <button type="submit" style="background: #c2185b; color: white; border: none; padding: 15px 40px; font-size: 18px; border-radius: 50px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+            Get Recommendations 🚀
+        </button>
+    </form>
+
+    <div style="margin-top: 50px; padding: 30px; background: rgba(255, 255, 255, 0.5); border-radius: 15px; text-align: left; border: 1px dashed #c2185b;">
+        <h3 style="color: #880e4f; margin-top: 0;">How does it work? ✨</h3>
+        <p style="color: #6a1b4d; line-height: 1.6;">
+            Our algorithm doesn't just guess—it predicts! We use <strong>Collaborative Filtering</strong> to find your perfect match:
+        </p>
+        <ul style="color: #6a1b4d; line-height: 1.6;">
+            <li><strong>The "Movie Twin" Logic:</strong> It looks for other users who have rated movies similarly to you. If your "Movie Twin" loved a film you haven't seen yet, there's a high chance you'll love it too!</li>
+            <li><strong>Predictive Ratings:</strong> Based on your past reviews and the tastes of similar users, the system calculates a predicted score for every movie in our database.</li>
+            <li><strong>Tailored to You:</strong> It filters out anything you've already seen, leaving only fresh recommendations specifically curated for your taste.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
