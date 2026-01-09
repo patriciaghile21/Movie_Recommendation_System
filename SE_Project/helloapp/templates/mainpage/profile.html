@@ -14,15 +14,11 @@
                     <p style="font-size: 18px; margin: 12px 0; color: #333;"><strong>Username:</strong> {{ user.username }}</p>
                     <p style="font-size: 18px; margin: 12px 0; color: #333;"><strong>Email:</strong> {{ user.email }}</p>
                     <p style="font-size: 18px; margin: 12px 0; color: #333;"><strong>Date Joined:</strong> {{ user.date_joined|date:"d M Y" }}</p>
-
-                    <br>
-                    <button style="background: #c2185b; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                        ✏️ Edit Details
-                    </button>
                 </div>
             </div>
 
             <div style="flex: 1; min-width: 300px;">
+
                 <h2 style="color: #880e4f; border-bottom: 2px solid #c2185b; padding-bottom: 10px; text-shadow: 1px 1px 0px rgba(255,255,255,0.3);">
                     👥 Friends List
                 </h2>
@@ -30,10 +26,13 @@
                 <ul style="list-style: none; padding: 0; margin-top: 20px;">
                     {% for friend in friends %}
                     <li style="background: white; border: 2px solid #ff69b4; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-radius: 10px;">
-                        <span style="font-size: 16px; color: #880e4f; font-weight: bold;">😊 {{ friend.username }}</span>
-                        <button style="background: #e91e63; color: white; border: none; padding: 5px 12px; border-radius: 50px; cursor: pointer; font-size: 12px;">
-                            Remove
-                        </button>
+                        <span style="font-size: 16px; color: #880e4f; font-weight: bold;">😊 {{ friend.user.username }}</span>
+
+                        <a href="{% url 'remove_friend' friend.id %}" style="text-decoration: none;">
+                            <button style="background: #e91e63; color: white; border: none; padding: 5px 12px; border-radius: 50px; cursor: pointer; font-size: 12px;">
+                                Remove
+                            </button>
+                        </a>
                     </li>
                     {% empty %}
                     <li style="color: #880e4f; font-style: italic; background: rgba(255,255,255,0.5); padding: 15px; border-radius: 8px;">
@@ -42,9 +41,26 @@
                     {% endfor %}
                 </ul>
 
-                <button style="width: 100%; padding: 12px; background: #880e4f; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 15px; box-shadow: 0 3px 6px rgba(0,0,0,0.2);">
-                    + Add New Friend
-                </button>
+                <h3 style="color: #880e4f; margin-top: 40px; border-bottom: 2px solid #c2185b; padding-bottom: 10px;">
+                    ➕ Add New Friends
+                </h3>
+
+                <ul style="list-style: none; padding: 0; margin-top: 15px;">
+                    {% for other in other_users %}
+                    <li style="background: rgba(255, 255, 255, 0.6); border: 1px dashed #ff69b4; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-radius: 10px;">
+                        <span style="font-size: 16px; color: #333;">👤 {{ other.user.username }}</span>
+
+                        <a href="{% url 'add_friend' other.id %}" style="text-decoration: none;">
+                            <button style="background: #27ae60; color: white; border: none; padding: 5px 12px; border-radius: 50px; cursor: pointer; font-size: 12px; font-weight: bold;">
+                                + Add
+                            </button>
+                        </a>
+                    </li>
+                    {% empty %}
+                    <li style="color: #555; font-style: italic;">No other users found to add.</li>
+                    {% endfor %}
+                </ul>
+
             </div>
         </div>
 

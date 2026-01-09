@@ -22,6 +22,8 @@ class Profile(models.Model):
     birthdate = models.DateField()
     is_email_verified = models.BooleanField(default=False)
 
+    friends = models.ManyToManyField("self", blank=True, symmetrical=False)
+
     def __str__(self):
         return self.user.username
 

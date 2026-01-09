@@ -43,16 +43,20 @@
 <body>
 
     <div class="navbar">
-        <div class="nav-left">
-            <a href="{% url 'main' %}">🎬 SmartMovie</a>
-        </div>
+    <div class="nav-left">
+        <a href="{% url 'main' %}">🎬 SmartMovie</a>
 
-        <div class="nav-right">
-            <span>Hello, {{ user.username }}!</span>
-            <a href="{% url 'profile' %}">👤 My Profile</a>
-            <a href="{% url 'logout' %}" style="color: #ff6b6b;">Log Out</a>
-        </div>
+        <a href="{% url 'movie_library' %}" style="margin-left: 20px; text-decoration: none; color: white;">
+            📚 All Movies
+        </a>
     </div>
+
+    <div class="nav-right">
+        <span>Hello, {{ user.username }}!</span>
+        <a href="{% url 'user_profile' %}">👤 My Profile</a>
+        <a href="{% url 'logout' %}" style="color: #ff6b6b;">Log Out</a>
+    </div>
+</div>
 
     <div class="content">
         {% block content %}
