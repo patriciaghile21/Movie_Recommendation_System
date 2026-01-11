@@ -2,9 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Page Route
-    path("", views.index, name="index"),
-
+    path("", views.main_window, name="mainn"),
     # Authentification
     path('register/', views.registerPage, name='register'),
     path('select_genres/', views.select_genres, name='select_genres'),

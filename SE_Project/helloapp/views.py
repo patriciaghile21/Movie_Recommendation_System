@@ -1,5 +1,4 @@
 import json
-
 from django.db.models import Avg
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
@@ -17,8 +16,8 @@ from .patterns import RecommendationEngine
 from .protocols import SessionProtocol, SessionState
 
 
+# --- INITIALIZATION ---
 
- # LOGIN AND REGISTER
 def initialize_review_chain():
     auth_handler = AuthenticationHandler()
     email_handler = EmailVerificationHandler()
@@ -26,35 +25,16 @@ def initialize_review_chain():
     auth_handler.set_next(email_handler).set_next(rate_limit_handler)
     return auth_handler
 
+
 REVIEW_CHAIN_START = initialize_review_chain()
 
-@login_required
-def post_review_api_view(request):
-    protocol = SessionProtocol(request)
-    if request.method != 'POST':
-        return JsonResponse({'status': 405, 'message': "Method not allowed"}, status=405)
 
-    if not protocol.is_at(SessionState.AUTHENTICATED):
-        return JsonResponse({'status': 403, 'message': "Protocol Error: Complete onboarding"}, status=403)
-
-    result = REVIEW_CHAIN_START.handle(request)
-
-    if result.get('status') == 200:
-        try:
-            data = json.loads(request.body)
-            return JsonResponse({'status': 201, 'message': "Review Posted Successfully"}, status=201)
-        except Exception as e:
-            return JsonResponse({'status': 400, 'message': f"Error: {e}"}, status=400)
-    else:
-        return JsonResponse(
-            {'status': result.get('status'), 'message': result.get('message')},
-            status=result.get('status')
-        )
+# --- AUTHENTICATION & REGISTRATION ---
 
 def registerPage(request):
     protocol = SessionProtocol(request)
-    if request.user.is_authenticated:
-        return redirect("index")
+    if request.user.is_authenticated and protocol.is_at(SessionState.AUTHENTICATED):
+        return redirect("main")
 
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
@@ -78,37 +58,16 @@ def registerPage(request):
         user = User.objects.create_user(username=username, email=email, password=password1)
         Profile.objects.create(user=user, birthdate=birthdate)
 
-        login(request, user)
-        protocol.transition_to(SessionState.AWAITING_ONBOARDING)
-        return redirect("select_genres")
+        messages.success(request, "Account created successfully! Please log in.")
+        return redirect("login")  # Schimbat din select_genres -> login
 
     return render(request, 'helloapp/register.html')
 
-@login_required
-def select_genres(request):
-    protocol = SessionProtocol(request)
-    if not protocol.is_at(SessionState.AWAITING_ONBOARDING):
-        return redirect("index")
-
-    if request.method == "POST":
-        selected_genres_ids = request.POST.getlist("genres")
-        if not selected_genres_ids:
-            messages.error(request, "Please select at least one genre.")
-        else:
-            profile = request.user.profile
-            profile.genres.set(selected_genres_ids)
-            profile.is_onboarded = True
-            profile.save()
-            protocol.transition_to(SessionState.AUTHENTICATED)
-            return redirect("index")
-
-    all_genres = Genre.objects.all()
-    return render(request, 'helloapp/select_genres.html', {'all_genres': all_genres})
 
 def loginPage(request):
     protocol = SessionProtocol(request)
-    if request.user.is_authenticated:
-        return redirect("index")
+    if request.user.is_authenticated and protocol.is_at(SessionState.AUTHENTICATED):
+        return redirect("main")
 
     if request.method == "POST":
         username = request.POST.get("username")
@@ -122,26 +81,19 @@ def loginPage(request):
             yes_link = request.build_absolute_uri(reverse('approve_login', args=[str(attempt.token)]))
             no_link = request.build_absolute_uri(reverse('deny_login', args=[str(attempt.token)]))
 
-            text_content = f"Hello {user.username}, Is this you trying to log in?\nYES: {yes_link}\nNO: {no_link}"
+            text_content = f"Hello {user.username}, Is this you?\nYES: {yes_link}\nNO: {no_link}"
             html_content = f"""
-                <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background-color: #fce4ec; border-radius: 20px;">
-                    <div style="background-color: white; padding: 30px; border-radius: 15px; text-align: center; border: 2px solid #FFB6C1;">
-                        <h2 style="color: #880e4f;">Movie Night Security 🍿</h2>
-                        <p>Hello <strong>{user.username}</strong>, was this you?</p>
-                        <div style="margin: 30px 0;">
-                            <a href="{yes_link}" style="display: inline-block; background-color: #c2185b; color: white; padding: 14px 28px; text-decoration: none; border-radius: 50px; font-weight: bold;">YES, IT'S ME 🎬</a>
-                            <br><br>
-                            <a href="{no_link}" style="color: #c2185b; text-decoration: none; font-size: 14px;">No, it wasn't me!</a>
-                        </div>
-                    </div>
+                <div style="font-family: sans-serif; background-color: #fce4ec; padding: 20px; border-radius: 15px;">
+                    <h2>Movie Night Security 🍿</h2>
+                    <p>Was this you, <strong>{user.username}</strong>?</p>
+                    <a href="{yes_link}">YES, IT'S ME</a> | <a href="{no_link}">NO</a>
                 </div>"""
 
             send_mail(
                 subject="Security Check",
                 message=text_content,
-                from_email=settings.DEFAULT_FROM_EMAIL or 'noreply@example.com',
+                from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[user.email],
-                fail_silently=False,
                 html_message=html_content
             )
 
@@ -149,15 +101,40 @@ def loginPage(request):
             protocol.transition_to(SessionState.AWAITING_2FA)
             return render(request, "helloapp/wait_for_email.html")
         else:
-            messages.error(request, "Invalid username or password.")
+            messages.error(request, "Invalid credentials.")
 
     return render(request, "helloapp/login.html")
+
+
+# --- ONBOARDING & 2FA ---
+
+@login_required
+def select_genres(request):
+    protocol = SessionProtocol(request)
+    # Permitem accesul DOAR dacă este în starea de onboarding
+    if not protocol.is_at(SessionState.AWAITING_ONBOARDING):
+        return redirect("main")
+
+    if request.method == "POST":
+        selected_genres_ids = request.POST.getlist("genres")
+        if not selected_genres_ids:
+            messages.error(request, "Please select at least one genre.")
+        else:
+            profile = request.user.profile
+            profile.genres.set(selected_genres_ids)
+            profile.is_onboarded = True
+            profile.save()
+            protocol.transition_to(SessionState.AUTHENTICATED)
+            return redirect("main")
+
+    all_genres = Genre.objects.all()
+    return render(request, 'helloapp/select_genres.html', {'all_genres': all_genres})
+
 
 def check_login_status(request):
     protocol = SessionProtocol(request)
     user_id = request.session.get('pending_2fa_user')
-    if not user_id:
-        return JsonResponse({'status': 'error'})
+    if not user_id: return JsonResponse({'status': 'error'})
 
     try:
         attempt = LoginAttempt.objects.get(user_id=user_id)
@@ -166,15 +143,17 @@ def check_login_status(request):
             login(request, user)
             attempt.delete()
             del request.session['pending_2fa_user']
+
             if hasattr(user, 'profile') and not user.profile.is_onboarded:
                 protocol.transition_to(SessionState.AWAITING_ONBOARDING)
                 return JsonResponse({'status': 'onboarding'})
+
             protocol.transition_to(SessionState.AUTHENTICATED)
             return JsonResponse({'status': 'approved'})
     except LoginAttempt.DoesNotExist:
         return JsonResponse({'status': 'denied'})
-
     return JsonResponse({'status': 'waiting'})
+
 
 def approve_login_view(request, token):
     attempt = get_object_or_404(LoginAttempt, token=token)
@@ -182,97 +161,66 @@ def approve_login_view(request, token):
         if attempt.is_valid():
             attempt.is_confirmed = True
             attempt.save()
-            return render(request, "helloapp/email_result.html", {"message": "Login Approved!"})
-        else:
-            return render(request, "helloapp/email_result.html", {"message": "Link expired."})
+            return render(request, "helloapp/email_result.html", {"message": "Approved!"})
     return render(request, "helloapp/approve_login.html", {'token': token})
+
 
 def deny_login_view(request, token):
     attempt = get_object_or_404(LoginAttempt, token=token)
     attempt.delete()
-    return render(request, "helloapp/email_result.html", {"message": "Login Blocked."})
+    return render(request, "helloapp/email_result.html", {"message": "Blocked."})
+
+# --- MAIN PAGE & LIBRARY ---
 
 @login_required
-def index(request):
+def main_window(request):
     protocol = SessionProtocol(request)
+    # Redirecționări automate bazate pe stare
     if protocol.is_at(SessionState.AWAITING_ONBOARDING):
         return redirect("select_genres")
-    return render(request, 'helloapp/index.html')
+    if not protocol.is_at(SessionState.AUTHENTICATED):
+        return redirect("login")
 
-def logout_view(request):
-    logout(request)
-    return redirect("login")
-
-def error_404_view(request, exception):
-    return render(request, 'helloapp/404.html', status=404)
-
-
-@login_required
-def add_friend(request, friend_id):
-    my_profile = get_object_or_404(Profile, user=request.user)
-    friend_profile = get_object_or_404(Profile, id=friend_id)
-
-    my_profile.friends.add(friend_profile)
-    friend_profile.friends.add(my_profile)
-
-    return redirect("user_profile")
-
-@login_required
-def remove_friend(request, friend_id):
-    my_profile = get_object_or_404(Profile, user=request.user)
-    friend_profile = get_object_or_404(Profile, id=friend_id)
-
-    my_profile.friends.remove(friend_profile)
-    return redirect("user_profile")
-
-@login_required
-def add_review_page(request, movie_id):
-    movie = get_object_or_404(Movie, id=movie_id)
-
-    if request.method == "POST":
-        rating = request.POST.get('rating')
-        text_content = request.POST.get('text')
-
-        Review.objects.update_or_create(
-            user=request.user,
-            movie=movie,
-            defaults={
-                'rating': rating,
-                'text': text_content
-            }
-        )
-
-        return redirect('movie_library')
-
-    return render(request, "mainpage/add_review.html", {'movie': movie})
+    return render(request, "mainpage/main.html")
 
 
 @login_required
 def movie_library(request):
-    all_movies = Movie.objects.exclude(review__user=request.user)
+    protocol = SessionProtocol(request)
+    if not protocol.is_at(SessionState.AUTHENTICATED):
+        return redirect("main")
 
-    query = request.GET.get('search')
+    query = request.GET.get('search', '')
+
+    movies = Movie.objects.exclude(review__user=request.user).annotate(
+        avg_rating=Avg('review__rating')
+    )
+
     if query:
-        all_movies = all_movies.filter(name__icontains=query)
+        movies = movies.filter(name__icontains=query)
 
     engine = RecommendationEngine()
     profile = request.user.profile
 
-    safe_movies = []
-    for movie in all_movies:
-        errors = engine.check_movie(request.user, movie, profile)
-        if not errors:
-            safe_movies.append(movie)
+    safe_movies = [
+        movie for movie in movies
+        if not engine.check_movie(request.user, movie, profile)
+    ]
 
     return render(request, "mainpage/movie_library.html", {
         'movies': safe_movies,
         'search_query': query
     })
 
-def main_window(request):
-    return render(request, "mainpage/main.html")
 
+# --- USER SOCIAL & REVIEWS ---
+
+@login_required
 def user_profile(request):
+    protocol = SessionProtocol(request)
+    if not protocol.is_at(SessionState.AUTHENTICATED):
+        return redirect("main")
+
     try:
         my_profile = Profile.objects.get(user=request.user)
     except Profile.DoesNotExist:
@@ -280,41 +228,100 @@ def user_profile(request):
         my_profile = Profile.objects.create(user=request.user, birthdate=date(2000, 1, 1))
 
     friends = my_profile.friends.all()
-
     other_users = Profile.objects.exclude(user=request.user).exclude(id__in=friends.values_list('id', flat=True))
 
-    context = {
-        'user': request.user,
-        'friends': friends,
-        'other_users': other_users
-    }
-    return render(request, "mainpage/profile.html", context)
+    return render(request, "mainpage/profile.html", {
+        'user': request.user, 'friends': friends, 'other_users': other_users
+    })
+
+@login_required
+def add_friend(request, friend_id):
+    protocol = SessionProtocol(request)
+    if not protocol.is_at(SessionState.AUTHENTICATED): return redirect("main")
+
+    my_profile = get_object_or_404(Profile, user=request.user)
+    friend_profile = get_object_or_404(Profile, id=friend_id)
+    my_profile.friends.add(friend_profile)
+    friend_profile.friends.add(my_profile)
+    return redirect("user_profile")
+
+
+@login_required
+def remove_friend(request, friend_id):
+    protocol = SessionProtocol(request)
+    if not protocol.is_at(SessionState.AUTHENTICATED): return redirect("main")
+
+    my_profile = get_object_or_404(Profile, user=request.user)
+    friend_profile = get_object_or_404(Profile, id=friend_id)
+    my_profile.friends.remove(friend_profile)
+    return redirect("user_profile")
+
+
+@login_required
+def add_review_page(request, movie_id):
+    protocol = SessionProtocol(request)
+    if not protocol.is_at(SessionState.AUTHENTICATED): return redirect("main")
+
+    movie = get_object_or_404(Movie, id=movie_id)
+    if request.method == "POST":
+        Review.objects.update_or_create(
+            user=request.user, movie=movie,
+            defaults={'rating': request.POST.get('rating'), 'text': request.POST.get('text')}
+        )
+        return redirect('movie_library')
+    return render(request, "mainpage/add_review.html", {'movie': movie})
+
+
+@login_required
+def post_review_api_view(request):
+    protocol = SessionProtocol(request)
+    if request.method != 'POST':
+        return JsonResponse({'status': 405, 'message': "Method not allowed"}, status=405)
+    if not protocol.is_at(SessionState.AUTHENTICATED):
+        return JsonResponse({'status': 403, 'message': "Protocol Error"}, status=403)
+
+    result = REVIEW_CHAIN_START.handle(request)
+    if result.get('status') == 200:
+        return JsonResponse({'status': 201, 'message': "Review Posted Successfully"}, status=201)
+    return JsonResponse({'status': result.get('status'), 'message': result.get('message')}, status=result.get('status'))
+
+
+# --- MOVIE DETAILS & RECS ---
+
+@login_required
+def movie_detail(request, movie_id):
+    protocol = SessionProtocol(request)
+    if not protocol.is_at(SessionState.AUTHENTICATED): return redirect("main")
+
+    movie = get_object_or_404(Movie, id=movie_id)
+    avg_rating = Review.objects.filter(movie=movie).aggregate(Avg('rating'))['rating__avg']
+    return render(request, "mainpage/movie_detail.html", {'movie': movie, 'avg_rating': avg_rating})
+
 
 @login_required
 def recommendations(request):
+    protocol = SessionProtocol(request)
+    if not protocol.is_at(SessionState.AUTHENTICATED): return redirect("main")
+
     if request.method == "POST":
         selected_genres = request.POST.getlist('genres')
-
         mock_movies = [
             {'title': 'Inception', 'year': 2010, 'rating': 8.8, 'genres': 'Sci-Fi'},
             {'title': 'The Dark Knight', 'year': 2008, 'rating': 9.0, 'genres': 'Action'},
             {'title': 'Titanic', 'year': 1997, 'rating': 7.8, 'genres': 'Romance'},
         ]
-
-        context = {
-            'movies': mock_movies,
-            'selected_genres': selected_genres
-        }
-        return render(request, "mainpage/recommendations.html", context)
-
+        return render(request, "mainpage/recommendations.html",
+                      {'movies': mock_movies, 'selected_genres': selected_genres})
     return redirect("main")
 
 
-def movie_detail(request, movie_id):
-    movie = get_object_or_404(Movie, id=movie_id)
-    avg_rating = Review.objects.filter(movie=movie).aggregate(Avg('rating'))['rating__avg']
+# --- SYSTEM VIEWS ---
 
-    return render(request, "mainpage/movie_detail.html", {
-        'movie': movie,
-        'avg_rating': avg_rating
-    })
+def logout_view(request):
+    request.session['protocol_state'] = SessionState.ANONYMOUS.name
+    logout(request)
+    return redirect("login")
+
+
+def error_404_view(request, exception):
+    return render(request, 'helloapp/404.html', status=404)

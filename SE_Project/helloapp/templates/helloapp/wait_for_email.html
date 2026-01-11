@@ -33,7 +33,7 @@
             if (data.status === 'approved') {
                 statusMsg.innerText = "Success! Redirecting...";
                 clearInterval(interval);
-                window.location.href = "{% url 'index' %}";
+                window.location.href = "{% url 'main' %}";
             }
             else if (data.status === 'onboarding') {
                 window.location.href = "{% url 'select_genres' %}";
