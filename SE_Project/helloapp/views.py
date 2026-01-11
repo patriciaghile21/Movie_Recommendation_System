@@ -1,4 +1,3 @@
-import json
 from django.db.models import Avg
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
@@ -175,7 +174,6 @@ def deny_login_view(request, token):
 @login_required
 def main_window(request):
     protocol = SessionProtocol(request)
-    # Redirecționări automate bazate pe stare
     if protocol.is_at(SessionState.AWAITING_ONBOARDING):
         return redirect("select_genres")
     if not protocol.is_at(SessionState.AUTHENTICATED):
@@ -305,13 +303,43 @@ def recommendations(request):
 
     if request.method == "POST":
         selected_genres = request.POST.getlist('genres')
-        mock_movies = [
-            {'title': 'Inception', 'year': 2010, 'rating': 8.8, 'genres': 'Sci-Fi'},
-            {'title': 'The Dark Knight', 'year': 2008, 'rating': 9.0, 'genres': 'Action'},
-            {'title': 'Titanic', 'year': 1997, 'rating': 7.8, 'genres': 'Romance'},
-        ]
-        return render(request, "mainpage/recommendations.html",
-                      {'movies': mock_movies, 'selected_genres': selected_genres})
+
+        # Limit to first 5 movies from DB as requested
+        candidate_movies = Movie.objects.all()[:5]
+
+        engine = RecommendationEngine()
+        try:
+            profile = request.user.profile
+        except Profile.DoesNotExist:
+            # Fallback if profile missing
+            return redirect("index")
+
+        safe_movies_data = []
+
+        for movie in candidate_movies:
+            errors = engine.check_movie(request.user, movie, profile)
+
+            if not errors:
+                avg_rating = Review.objects.filter(movie=movie).aggregate(Avg('rating'))['rating__avg']
+                if avg_rating is None:
+                    avg_rating = 0.0
+
+                genres_str = ", ".join([g.name for g in movie.genres.all()])
+
+                movie_data = {
+                    'title': movie.name,
+                    'year': movie.releaseDate.year,
+                    'rating': round(avg_rating, 1),
+                    'genres': genres_str
+                }
+                safe_movies_data.append(movie_data)
+
+        context = {
+            'movies': safe_movies_data,
+            'selected_genres': selected_genres
+        }
+        return render(request, "mainpage/recommendations.html", context)
+
     return redirect("main")
 
 

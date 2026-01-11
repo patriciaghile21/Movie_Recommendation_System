@@ -64,3 +64,14 @@ class LoginAttempt(models.Model):
 
     def is_valid(self):
         return (timezone.now() - self.created_at).total_seconds() < 300
+
+class Recommendation(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
+    predicted_rating = models.DecimalField(max_digits=3, decimal_places=2)
+
+    class Meta:
+        unique_together = ('user', 'movie')
+
+    def __str__(self):
+        return f"Rec for {self.user.username}: {self.movie.name} ({self.predicted_rating})"
