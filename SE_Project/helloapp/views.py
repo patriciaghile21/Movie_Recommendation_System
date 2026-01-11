@@ -9,7 +9,7 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from django.conf import settings
 
-from .models import Movie, Profile, Genre, LoginAttempt, Review
+from .models import Movie, Profile, Genre, LoginAttempt, Review, Recommendation
 from .handlers import AuthenticationHandler, EmailVerificationHandler, ReviewRateLimitingHandler
 from .patterns import RecommendationEngine
 from .protocols import SessionProtocol, SessionState
@@ -299,27 +299,32 @@ def movie_detail(request, movie_id):
 @login_required
 def recommendations(request):
     protocol = SessionProtocol(request)
-    if not protocol.is_at(SessionState.AUTHENTICATED): return redirect("main")
+    if not protocol.is_at(SessionState.AUTHENTICATED):
+        return redirect("main")
 
     if request.method == "POST":
         selected_genres = request.POST.getlist('genres')
 
-        # Limit to first 5 movies from DB as requested
-        candidate_movies = Movie.objects.all()[:5]
-
-        engine = RecommendationEngine()
-        try:
-            profile = request.user.profile
-        except Profile.DoesNotExist:
-            # Fallback if profile missing
-            return redirect("index")
+        user_recs = Recommendation.objects.filter(user=request.user).order_by('-predicted_rating')
 
         safe_movies_data = []
+        user_is_new = False
 
-        for movie in candidate_movies:
-            errors = engine.check_movie(request.user, movie, profile)
+        if not user_recs.exists():
+            user_is_new = True
+        else:
+            target_movie_ids = [rec.movie_id for rec in user_recs]
 
-            if not errors:
+            candidate_movies = []
+            for m_id in target_movie_ids:
+                try:
+                    movie = Movie.objects.get(id=m_id)
+                    candidate_movies.append(movie)
+                except Movie.DoesNotExist:
+                    continue
+
+            for movie in candidate_movies:
+
                 avg_rating = Review.objects.filter(movie=movie).aggregate(Avg('rating'))['rating__avg']
                 if avg_rating is None:
                     avg_rating = 0.0
@@ -330,13 +335,15 @@ def recommendations(request):
                     'title': movie.name,
                     'year': movie.releaseDate.year,
                     'rating': round(avg_rating, 1),
-                    'genres': genres_str
+                    'genres': genres_str,
+                    'predicted_score': next((r.predicted_rating for r in user_recs if r.movie_id == movie.id), 0)
                 }
                 safe_movies_data.append(movie_data)
 
         context = {
             'movies': safe_movies_data,
-            'selected_genres': selected_genres
+            'selected_genres': selected_genres,
+            'user_is_new': user_is_new  # Pass this flag to the template
         }
         return render(request, "mainpage/recommendations.html", context)
 
