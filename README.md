@@ -1,33 +1,26 @@
 # Smart Movie Recommendation System 🎬
 
 ## 📌 Project Overview
-An intelligent, distributed platform designed to provide personalized movie suggestions through collaborative filtering and microservices. The project bridges modern web development (Django) with academic rigor, incorporating formal verification methods and advanced architectural design patterns.
+A distributed movie recommendation platform that integrates modern web development with formal verification methods. This project demonstrates a robust approach to software reliability, focusing on structural design patterns and runtime monitoring.
 
-## 🛠️ Key Technical Contributions
-I focused on the core logic and reliability of the system, implementing the following:
+## 🛠️ My Technical Contributions
+I was responsible for the core verification logic and the user interface, specifically:
 
-* **Advanced Design Patterns:** Implemented the **Visitor Pattern** within `helloapp/patterns.py` to create a modular verification bridge. This allows for extending the system's validation rules (e.g., checking user age vs. movie rating) without modifying the core entity classes.
-* **Distributed Recommendation Engine:** Developed the `recommendation_service.py` as a standalone microservice that uses collaborative filtering algorithms to analyze user behavior and suggest relevant content.
-* **Microservices Communication:** Integrated **RPyC (Remote Python Call)** for high-performance communication between the Django web server and the AI backend.
-* **Backend Architecture:** Structured the core Django application (`SE_Project`) and the specific app logic (`helloapp`) to ensure scalability and clean separation of concerns.
+* **Design Pattern Verification (Visitor):** Implemented a decoupled verification bridge using the **Visitor Pattern** in `helloapp/patterns.py`. This ensures that validation rules (such as age restrictions or permission checks) are independent of the movie and user entities, making the system highly extensible.
+* **Formal Verification (K Framework):** Developed the formal semantics and runtime verification logic specifically for **Linux**. Using the **K Framework**, I implemented monitors that ensure the recommendation logic adheres to predefined safety properties during execution.
+* **Frontend Development:** Designed and implemented the responsive web interface. Using Django's template engine, I built the frontend components that allow users to interact with the recommendation engine and view personalized movie data.
 
-## 🐧 Linux & Formal Verification (K Framework)
-Beyond the standard implementation, this project explores **Runtime Verification** to ensure system correctness:
+## 🐧 Linux Environment & K Framework
+The project features a specialized verification layer designed to run on Linux:
+* **Runtime Monitoring:** The K Framework integration intercepts system events to verify correctness in real-time.
+* **Formal Semantics:** I defined the operational semantics for the core recommendation components to prevent logic errors before they reach the production environment.
 
-* **K Framework Integration:** A specialized version of this system (available in the `linux-k-framework` branch) includes formal semantics defined using the K Framework. 
-* **Runtime Monitors:** Specifically designed for a **Linux environment**, these monitors intercept system events to verify that the recommendation logic adheres to predefined safety and security properties.
-* **Platform Specifics:** While the core Django UI is platform-independent, the formal verification layer leverages Linux-specific tools to perform real-time analysis of the software's execution trace.
+## 📂 Project Structure
+* `helloapp/` - Contains the logic for the Visitor Pattern and frontend views.
+* `templates/` - HTML/CSS components for the user interface.
+* `k-framework/` - (Available on the linux branch) Formal verification scripts and semantics definitions.
+* `manage.py` - Main entry point for the Django application.
 
-## 🗄️ Project Structure
-* `helloapp/` - Application logic, including models and the Visitor pattern implementation.
-* `SE_Project/` - Core settings and configuration for the Django framework.
-* `recommendation_service.py` - Standalone AI service for movie filtering.
-* `manage.py` - Entry point for administrative tasks and server management.
-* `connector.py` / `test_rpyc.py` - Utilities for distributed service communication.
-
-## 🚀 How to Run (Windows/Core Version)
-1. **Environment:** Ensure Python 3.x is installed.
-2. **Setup:** Install required libraries: `pip install django rpyc`.
-3. **Database:** Initialize the schema: `python manage.py migrate`.
-4. **Launch AI:** Start the recommendation engine: `python recommendation_service.py`.
-5. **Start Web:** Run the server: `python manage.py runserver`.
+## 🚀 How to Run
+1. **Frontend & Logic:** Install Django (`pip install django`) and run `python manage.py runserver`.
+2. **Verification (Linux):** Switch to the `linux-k-framework` branch and follow the instructions in the `k-framework` directory to start the runtime monitors.
